@@ -171,16 +171,24 @@ def train_PG(exp_name='',
 
     if discrete:
         # YOUR_CODE_HERE
-        sy_logits_na = TODO
-        sy_sampled_ac = TODO # Hint: Use the tf.multinomial op
-        sy_logprob_n = TODO
+        sy_logits_na = build_mlp(sy_ob_no, ac_dim, "policy", n_layers=n_layers, size=size)
+        # Hint: Use the tf.multinomial op
+        sy_sampled_ac = tf.reshape(tf.multinomial(sy_logits_na, 1), [-1])
+        sy_logprob_n = -tf.nn.sparse_softmax_cross_entropy_with_logits(labels=sy_ac_na, logits=sy_logits_na)
 
     else:
         # YOUR_CODE_HERE
-        sy_mean = TODO
-        sy_logstd = TODO # logstd should just be a trainable variable, not a network output.
-        sy_sampled_ac = TODO
-        sy_logprob_n = TODO  # Hint: Use the log probability under a multivariate gaussian. 
+        sy_mean = build_mlp(sy_ob_no, ac_dim, "policy", n_layers=n_layers, size=size)
+        # logstd should just be a trainable variable, not a network output.
+        sy_logstd = tf.Variable(tf.zeros([1, ac_dim]), name="policy/logstd", dtype=tf.float32)
+        sy_std = tf.exp(sy_logstd)
+
+        sy_sampled_z = tf.random_normal(tf.shape(sy_mean))
+        sy_sampled_ac = sy_mean + sy_std*sy_sampled_z
+
+        # Hint: Use the log probability under a multivariate gaussian.
+        sy_z = (sy_ac_na - sy_mean)/sy_std
+        sy_logprob_n = -0.5*tf.reduce_sum(tf.square(sy_z), axis=1)
 
 
 
@@ -189,7 +197,8 @@ def train_PG(exp_name='',
     # Loss Function and Training Operation
     #========================================================================================#
 
-    loss = TODO # Loss function that we'll differentiate to get the policy gradient.
+    # Loss function that we'll differentiate to get the policy gradient.
+    loss = -tf.reduce_mean(sy_logprob_n*sy_adv_n)
     update_op = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
 
@@ -200,7 +209,7 @@ def train_PG(exp_name='',
 
     if nn_baseline:
         baseline_prediction = tf.squeeze(build_mlp(
-                                sy_ob_no, 
+                                sy_ob_no,
                                 1, 
                                 "nn_baseline",
                                 n_layers=n_layers,
@@ -208,7 +217,9 @@ def train_PG(exp_name='',
         # Define placeholders for targets, a loss function and an update op for fitting a 
         # neural network baseline. These will be used to fit the neural network baseline. 
         # YOUR_CODE_HERE
-        baseline_update_op = TODO
+        sy_target_n = tf.placeholder(shape=[None], name="target", dtype=tf.float32)
+        baseline_loss = tf.nn.l2_loss(baseline_prediction - sy_target_n)
+        baseline_update_op = tf.train.AdamOptimizer(learning_rate).minimize(baseline_loss)
 
 
     #========================================================================================#

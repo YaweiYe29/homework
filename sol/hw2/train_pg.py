@@ -184,7 +184,8 @@ def train_PG(exp_name='',
         sy_logits_na = build_mlp(sy_ob_no, ac_dim, "policy", n_layers=n_layers, size=size)
 
         # Sample an action from the stochastic policy
-        sy_sampled_ac = tf.reshape(tf.multinomial(sy_logits_na, 1), [-1]) # tf.multinomial draws samples from a multinomial distribution
+        # tf.multinomial draws samples from a multinomial distribution
+        sy_sampled_ac = tf.reshape(tf.multinomial(sy_logits_na, 1), [-1])
 
         # Likelihood of chosen action
         sy_logprob_n = -tf.nn.sparse_softmax_cross_entropy_with_logits(labels=sy_ac_na, logits=sy_logits_na)
@@ -198,7 +199,8 @@ def train_PG(exp_name='',
         sy_std = tf.exp(sy_logstd)
 
         # Sample an action from the stochastic policy
-        sy_sampled_z = tf.random_normal(tf.shape(sy_mean)) # tf.random_normal outputs random values from a normal distribution
+        # tf.random_normal outputs random values from a normal distribution
+        sy_sampled_z = tf.random_normal(tf.shape(sy_mean))
         sy_sampled_ac = sy_mean + sy_std * sy_sampled_z
 
         # Likelihood of chosen action
