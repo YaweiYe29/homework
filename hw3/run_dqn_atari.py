@@ -28,9 +28,7 @@ def atari_model(img_in, num_actions, scope, reuse=False):
 
         return out
 
-def atari_learn(env,
-                session,
-                num_timesteps):
+def atari_learn(env, session, num_timesteps):
     # This is just a rough estimate
     num_iterations = float(num_timesteps) / 4.0
 

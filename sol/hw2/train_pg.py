@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import gym
-import roboschool
+# import roboschool
 import logz
 import scipy.signal
 import os

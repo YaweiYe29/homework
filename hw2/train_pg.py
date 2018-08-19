@@ -12,6 +12,10 @@ from multiprocessing import Process
 # Utilities
 #============================================================================================#
 
+def normalize(data, mean=0.0, std=1.0):
+    n_data = (data - np.mean(data)) / (np.std(data) + 1e-8)
+    return n_data * (std + 1e-8) + mean
+
 def build_mlp(
         input_placeholder, 
         output_size,
@@ -34,7 +38,7 @@ def build_mlp(
     #========================================================================================#
 
     with tf.variable_scope(scope):
-        # YOUR_CODE_HERE
+        # TODO: YOUR_CODE_HERE
         out = input_placeholder
         for l in range(n_layers):
             out = tf.layers.dense(input=out, units=size, activation=activation)
@@ -170,13 +174,14 @@ def train_PG(exp_name='',
     #========================================================================================#
 
     if discrete:
-        # YOUR_CODE_HERE
+        # TODO: YOUR_CODE_HERE
         sy_logits_na = build_mlp(sy_ob_no, ac_dim, "policy", n_layers=n_layers, size=size)
         # Hint: Use the tf.multinomial op
         sy_sampled_ac = tf.reshape(tf.multinomial(sy_logits_na, 1), [-1])
         sy_logprob_n = -tf.nn.sparse_softmax_cross_entropy_with_logits(labels=sy_ac_na, logits=sy_logits_na)
 
     else:
+
         # YOUR_CODE_HERE
         sy_mean = build_mlp(sy_ob_no, ac_dim, "policy", n_layers=n_layers, size=size)
         # logstd should just be a trainable variable, not a network output.
@@ -216,7 +221,7 @@ def train_PG(exp_name='',
                                 size=size))
         # Define placeholders for targets, a loss function and an update op for fitting a 
         # neural network baseline. These will be used to fit the neural network baseline. 
-        # YOUR_CODE_HERE
+        # TODO: YOUR_CODE_HERE
         sy_target_n = tf.placeholder(shape=[None], name="target", dtype=tf.float32)
         baseline_loss = tf.nn.l2_loss(baseline_prediction - sy_target_n)
         baseline_update_op = tf.train.AdamOptimizer(learning_rate).minimize(baseline_loss)
@@ -331,8 +336,20 @@ def train_PG(exp_name='',
         #
         #====================================================================================#
 
-        # YOUR_CODE_HERE
-        q_n = TODO
+        # TODO: YOUR_CODE_HERE
+        q_n = []
+        for path in paths:
+            q = 0
+            q_path = []
+
+            for reward in reversed(path["reward"])
+                q = reward + gamma*q
+                q_path.append(q)
+            q_path.reverse()
+
+            if not reward_to_go:
+                q_path = [q_path[0]]*len(q_path)
+            q_n.extend(q_path)
 
         #====================================================================================#
         #                           ----------SECTION 5----------
@@ -348,8 +365,34 @@ def train_PG(exp_name='',
             # (mean and std) of the current or previous batch of Q-values. (Goes with Hint
             # #bl2 below.)
 
-            b_n = TODO
-            adv_n = q_n - b_n
+            # TODO: YOUR_CODE_HERE
+            b_n = sess.run(baseline_prediction, feed_dict={sy_ob_no : ob_no})
+            b_n = normalize(b_n, np.mean(q_n), np.std(q_n))
+
+            # Generalized advantage estimation
+            adv_n = []
+            idx = 0
+            for path in paths:
+                adv = 0
+                adv_path = []
+                V_next = 0
+                idx += len(path["reward"])
+
+                # Dynamic programming over reversed path
+                for rew, V in zip(reversed(path["reward"]), b_n[idx-1:None:-1]):
+                    bellman_error = rew + gamma * V_next - V
+                    adv = bellman_error + gae_lambda * gamma * adv
+                    adv_path.append(adv)
+                    V_next = V
+                adv_path.reverse()
+
+                # Append these advantage values
+                if not reward_to_go:
+                    adv_path = [adv_path[0]] * len(adv_path)
+                adv_n.extend(adv_path)
+
+            # Compute a GAE version of q_n to use when fitting the baseline
+            q_n = b_n + adv_n
         else:
             adv_n = q_n.copy()
 
@@ -361,8 +404,8 @@ def train_PG(exp_name='',
         if normalize_advantages:
             # On the next line, implement a trick which is known empirically to reduce variance
             # in policy gradient methods: normalize adv_n to have mean zero and std=1. 
-            # YOUR_CODE_HERE
-            pass
+            # TODO: YOUR_CODE_HERE
+            adv_n = normalize(adv_n)
 
 
         #====================================================================================#
@@ -381,7 +424,8 @@ def train_PG(exp_name='',
             # targets to have mean zero and std=1. (Goes with Hint #bl1 above.)
 
             # YOUR_CODE_HERE
-            pass
+            q_normalized_n = normalize(q_n)
+            sess.run(baseline_update_op, feed_dict={sy_ob_no : ob_no, sy_target_n : q_normalized_n})
 
         #====================================================================================#
         #                           ----------SECTION 4----------
@@ -394,7 +438,8 @@ def train_PG(exp_name='',
         # For debug purposes, you may wish to save the value of the loss function before
         # and after an update, and then log them below. 
 
-        # YOUR_CODE_HERE
+        # TODO: YOUR_CODE_HERE
+        sess.run(update_op, feed_dict={sy_ob_no : ob_no, sy_ac_na : ac_nac, sy_adv_n : adv_n})
 
 
         # Log diagnostics
