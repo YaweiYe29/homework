@@ -93,3 +93,6 @@ ENV/
 
 # vim
 *.swp
+
+# visualization
+hw3_vid_dir2
