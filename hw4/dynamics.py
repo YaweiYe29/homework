@@ -35,11 +35,17 @@ class NNDynamicsModel():
 
     def fit(self, data):
         """
-        Write a function to take in a dataset of (unnormalized)states, (unnormalized)actions, (unnormalized)next_states and fit the dynamics model going from normalized states, normalized actions to normalized state differences (s_t+1 - s_t)
+        Write a function to take in a dataset of (unnormalized) states, (unnormalized) actions,
+        (unnormalized) next_states and fit the dynamics model going from normalized states,
+        normalized actions to ``normalized state differences (s_t+1 - s_t)
         """
 
         """YOUR CODE HERE """
 
     def predict(self, states, actions):
-        """ Write a function to take in a batch of (unnormalized) states and (unnormalized) actions and return the (unnormalized) next states as predicted by using the model """
+        """
+        Write a function to take in a batch of (unnormalized) states and
+        (unnormalized) actions and return the (unnormalized) next states as
+        predicted by using the model
+        """
         """ YOUR CODE HERE """

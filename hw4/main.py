@@ -18,12 +18,43 @@ def sample(env,
            render=False,
            verbose=False):
     """
-        Write a sampler function which takes in an environment, a controller (either random or the MPC controller), 
+        Write a sampler function which takes in an environment,
+        a controller (either random or the MPC controller),
         and returns rollouts by running on the env. 
-        Each path can have elements for observations, next_observations, rewards, returns, actions, etc.
+        Each path can have elements for observations,
+        next_observations, rewards, returns, actions, etc.
     """
     paths = []
     """ YOUR CODE HERE """
+    for n in range(num_paths):
+        path = {
+		        "observations":      [],
+		        "rewards":          [],
+		        "next_observations": [],
+		        "actions":          []
+	            }
+
+        t = 0
+        ob = env.reset()
+        while t <= horizon:
+            if t % 100 == 0 and t > 0:
+                print("Timestep {} with horizon {}".format(t, horizon))
+
+            action = controller.get_action(ob)
+            nob, rew, done, info = env.step(action)
+
+            path['observations'].append(ob)
+            path['next_observations'].append(nob)
+            path['rewards'].append(rew)
+            path['actions'].append(action)
+
+            if done:
+                break
+
+            ob = nob
+            t += 1
+
+        paths.append(path)
 
     return paths
 
@@ -34,16 +65,32 @@ def path_cost(cost_fn, path):
 def compute_normalization(data):
     """
     Write a function to take in a dataset and compute the means, and stds.
-    Return 6 elements: mean of s_t, std of s_t, mean of (s_t+1 - s_t), std of (s_t+1 - s_t), mean of actions, std of actions
+    Return 6 elements: mean of s_t, std of s_t, mean of (s_t+1 - s_t), std of (s_t+1 - s_t),
+    mean of actions, std of actions
     """
 
     """ YOUR CODE HERE """
+    obs = np.concatenate([d['observations'] for d in data])
+    mean_obs = np.mean(obs)
+    std_obs  = np.std(obs)
+
+    nobs = np.concatenate(d['next_observations'] for d in data)
+
+    deltas = nobs - obs
+    mean_deltas = np.mean(deltas)
+    std_deltas  = np.std(deltas)
+
+    actions = np.concatenate(d['actions'] for d in data)
+    mean_action = np.mean(actions)
+    std_action  = np.std(actions)
+
     return mean_obs, std_obs, mean_deltas, std_deltas, mean_action, std_action
 
 
 def plot_comparison(env, dyn_model):
     """
-    Write a function to generate plots comparing the behavior of the model predictions for each element of the state to the actual ground truth, using randomly sampled actions. 
+    Write a function to generate plots comparing the behavior of the model predictions for
+    each element of the state to the actual ground truth, using randomly sampled actions.
     """
     """ YOUR CODE HERE """
     pass
@@ -71,7 +118,7 @@ def train(env,
 
     Arguments:
 
-    onpol_iters                 Number of iterations of onpolicy aggregation for the loop to run. 
+    onpol_iters                 Number of iterations of on-policy aggregation for the loop to run.
 
     dynamics_iters              Number of iterations of training for the dynamics model
     |_                          which happen per iteration of the aggregation loop.
@@ -89,12 +136,12 @@ def train(env,
     |                           should generate each time it is asked for an
     |_                          action.
 
-    env_horizon                 Number of timesteps in each path.
+    env_horizon                 Number of time-steps in each path.
 
     mpc_horizon                 The MPC policy generates actions by imagining 
     |                           fictitious rollouts, and picking the first action
     |                           of the best fictitious rollout. This argument is
-    |                           how many timesteps should be in each fictitious
+    |                           how many time-steps should be in each fictitious
     |_                          rollout.
 
     n_layers/size/activations   Neural network architecture arguments. 
@@ -113,6 +160,8 @@ def train(env,
 
     """ YOUR CODE HERE """
 
+    data = sample(env, random_controller, num_paths_random, env_horizon)
+
 
     #========================================================
     # 
@@ -121,8 +170,11 @@ def train(env,
     # (where deltas are o_{t+1} - o_t). These will be used
     # for normalizing inputs and denormalizing outputs
     # from the dynamics network. 
-    # 
-    normalization = """ YOUR CODE HERE """
+    #
+
+    """ YOUR CODE HERE """
+
+    normalization = compute_normalization(data)
 
 
     #========================================================
@@ -158,12 +210,12 @@ def train(env,
 
     #========================================================
     # 
-    # Take multiple iterations of onpolicy aggregation at each iteration refitting the dynamics model to current dataset and then taking onpolicy samples and aggregating to the dataset. 
+    # Take multiple iterations of on-policy aggregation at each iteration refitting the dynamics model to
+    # current dataset and then taking onpolicy samples and aggregating to the dataset.
     # Note: You don't need to use a mixing ratio in this assignment for new and old data as described in https://arxiv.org/abs/1708.02596
     # 
     for itr in range(onpol_iters):
         """ YOUR CODE HERE """
-
 
 
         # LOGGING
@@ -226,23 +278,23 @@ def main():
         env = HalfCheetahEnvNew()
         cost_fn = cheetah_cost_fn
     train(env=env, 
-                 cost_fn=cost_fn,
-                 logdir=logdir,
-                 render=args.render,
-                 learning_rate=args.learning_rate,
-                 onpol_iters=args.onpol_iters,
-                 dynamics_iters=args.dyn_iters,
-                 batch_size=args.batch_size,
-                 num_paths_random=args.random_paths, 
-                 num_paths_onpol=args.onpol_paths, 
-                 num_simulated_paths=args.simulated_paths,
-                 env_horizon=args.ep_len, 
-                 mpc_horizon=args.mpc_horizon,
-                 n_layers = args.n_layers,
-                 size=args.size,
-                 activation=tf.nn.relu,
-                 output_activation=None,
-                 )
+          cost_fn=cost_fn,
+          logdir=logdir,
+          render=args.render,
+          learning_rate=args.learning_rate,
+          onpol_iters=args.onpol_iters,
+          dynamics_iters=args.dyn_iters,
+          batch_size=args.batch_size,
+          num_paths_random=args.random_paths,
+          num_paths_onpol=args.onpol_paths,
+          num_simulated_paths=args.simulated_paths,
+          env_horizon=args.ep_len,
+          mpc_horizon=args.mpc_horizon,
+          n_layers = args.n_layers,
+          size=args.size,
+          activation=tf.nn.relu,
+          output_activation=None,
+          )
 
 if __name__ == "__main__":
     main()
