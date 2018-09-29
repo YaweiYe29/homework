@@ -26,33 +26,26 @@ def sample(env,
     """
     paths = []
     """ YOUR CODE HERE """
-    for n in range(num_paths):
-        path = {
-		        "observations":      [],
-		        "rewards":          [],
-		        "next_observations": [],
-		        "actions":          []
-	            }
 
-        t = 0
-        ob = env.reset()
-        while t <= horizon:
-            if t % 100 == 0 and t > 0:
-                print("Timestep {} with horizon {}".format(t, horizon))
+    for p in range(num_paths):
+        print('Start sampling {} out of {} paths'.format(p + 1, num_paths))
 
-            action = controller.get_action(ob)
-            nob, rew, done, info = env.step(action)
+        path = {'observations':[], 'next_observations':[], 'rewards':[], 'actions':[]}
+        obs = env.reset()
+        for t in range(horizon):
+            action = controller.get_action(obs)
+            next_obs, reward, done, _ = env.step(action)
 
-            path['observations'].append(ob)
-            path['next_observations'].append(nob)
-            path['rewards'].append(rew)
+            path['observations'].append(obs)
+            path['next_observations'].append(next_obs)
+            path['rewards'].append(reward)
             path['actions'].append(action)
 
             if done:
+                print('Episode finished after {} timesteps'.format(t+1))
                 break
 
-            ob = nob
-            t += 1
+            obs = next_obs
 
         paths.append(path)
 
@@ -60,7 +53,10 @@ def sample(env,
 
 # Utility to compute cost a path for a given cost function
 def path_cost(cost_fn, path):
-    return trajectory_cost_fn(cost_fn, path['observations'], path['actions'], path['next_observations'])
+    return trajectory_cost_fn(cost_fn,
+                              path['observations'],
+                              path['actions'],
+                              path['next_observations'])
 
 def compute_normalization(data):
     """
@@ -70,19 +66,20 @@ def compute_normalization(data):
     """
 
     """ YOUR CODE HERE """
-    obs = np.concatenate([d['observations'] for d in data])
-    mean_obs = np.mean(obs)
-    std_obs  = np.std(obs)
+    obs      = np.concatenate([item['observations'] for item in data])
+    next_obs = np.concatenate([item['next_observations'] for item in data])
+    actions  = np.concatenate([item['actions'] for item in data])
 
-    nobs = np.concatenate(d['next_observations'] for d in data)
+    deltas = next_obs - obs
 
-    deltas = nobs - obs
-    mean_deltas = np.mean(deltas)
-    std_deltas  = np.std(deltas)
+    mean_obs = obs.mean()
+    std_obs  = obs.std()
 
-    actions = np.concatenate(d['actions'] for d in data)
-    mean_action = np.mean(actions)
-    std_action  = np.std(actions)
+    mean_deltas = deltas.mean()
+    std_deltas  = deltas.std()
+
+    mean_action = actions.mean()
+    std_action  = actions.std()
 
     return mean_obs, std_obs, mean_deltas, std_deltas, mean_action, std_action
 
@@ -96,23 +93,23 @@ def plot_comparison(env, dyn_model):
     pass
 
 def train(env, 
-         cost_fn,
-         logdir=None,
-         render=False,
-         learning_rate=1e-3,
-         onpol_iters=10,
-         dynamics_iters=60,
-         batch_size=512,
-         num_paths_random=10, 
-         num_paths_onpol=10, 
-         num_simulated_paths=10000,
-         env_horizon=1000, 
-         mpc_horizon=15,
-         n_layers=2,
-         size=500,
-         activation=tf.nn.relu,
-         output_activation=None
-         ):
+          cost_fn,
+          logdir=None,
+          render=False,
+          learning_rate=1e-3,
+          onpol_iters=10,
+          dynamics_iters=60,
+          batch_size=512,
+          num_paths_random=10,
+          num_paths_onpol=10,
+          num_simulated_paths=10000,
+          env_horizon=1000,
+          mpc_horizon=15,
+          n_layers=2,
+          size=500,
+          activation=tf.nn.relu,
+          output_activation=None
+          ):
 
     """
 
@@ -159,8 +156,10 @@ def train(env,
     random_controller = RandomController(env)
 
     """ YOUR CODE HERE """
-
-    data = sample(env, random_controller, num_paths_random, env_horizon)
+    data = sample(env=env,
+                  controller=random_controller,
+                  num_paths=num_paths_random,
+                  horizon=env_horizon)
 
 
     #========================================================
@@ -170,10 +169,8 @@ def train(env,
     # (where deltas are o_{t+1} - o_t). These will be used
     # for normalizing inputs and denormalizing outputs
     # from the dynamics network. 
-    #
-
+    # 
     """ YOUR CODE HERE """
-
     normalization = compute_normalization(data)
 
 

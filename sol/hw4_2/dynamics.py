@@ -66,36 +66,44 @@ class NNDynamicsModel():
         """
         # self._normalization takes the following form
         # mean_obs, std_obs, mean_deltas, std_deltas, mean_action, std_action
-        obs          = np.concatenate([item['observations'] for item in data])
-        nobs         = np.concatenate([item['next_observations'] for item in data])
-        actions      = np.concatenate([item['actions'] for item in data])
+        obs     = np.concatenate([item['observations'] for item in data])
+        nobs    = np.concatenate([item['next_observations'] for item in data])
+        actions = np.concatenate([item['actions'] for item in data])
 
-        deltas       = nobs - obs
+        deltas = nobs - obs
 
         norm_states  = (obs     - self.normalization[0])/(self.normalization[1] + EPS)
         norm_deltas  = (deltas  - self.normalization[2])/(self.normalization[3] + EPS)
         norm_actions = (actions - self.normalization[4])/(self.normalization[5] + EPS)
 
         for i in range(self.iterations):
-            dataset       = tf.data.Dataset.from_tensor_slices((norm_states, norm_actions, norm_deltas))
-            batch_dataset = dataset.shuffle(norm_states.shape[0]).batch(self.batch_size)
-            iterator      = batch_dataset.make_one_shot_iterator()
-            next_element  = iterator.get_next()
-            loss = 0
-            idx  = 0
+            # Construct a Dataset form some tensors in memory.
+            dataset = tf.data.Dataset.from_tensor_slices((norm_states, norm_actions, norm_deltas))
+
+            # Once you have a Dataset object, you can transform it into a new Dataset by chaining method calls
+            # on the tf.data.Dataset object.
+            batched_dataset = dataset.shuffle(norm_states.shape[0]).batch(self.batch_size)
+
+            # To consume values from a Dataset is to make an iterator object that provides access to one element
+            # of the dataset at a time.
+            iterator = batched_dataset.make_one_shot_iterator()
+            next_element = iterator.get_next()
+
+            num_steps  = 0
+            loss_value = 0
             while True:
                 try:
                     obs, action, delta = self.sess.run(next_element)
                 except tf.errors.OutOfRangeError:
                     break
-                feed_dict = {self.obs_t_ph:   obs,
-                             self.act_t_ph:   action,
+                feed_dict = {self.obs_t_ph: obs,
+                             self.act_t_ph: action,
                              self.delta_t_ph: delta}
 
-                loss += self.sess.run(self.loss, feed_dict)
-                idx  += 1
+                loss_value += self.sess.run(self.loss, feed_dict)
+                num_steps  += 1
                 self.sess.run(self.optimizer, feed_dict)
-            print('    Dyn fit -- avg loss {} :: epoch {}'.format(loss / idx, i))
+            print('    Dyn fit -- avg loss {} :: epoch {}'.format(loss_value / num_steps, i))
 
     def predict(self, states, actions):
         """

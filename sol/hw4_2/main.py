@@ -28,28 +28,25 @@ def sample(env,
 
     for n in range(num_paths):
         print('Sampling {} out of {} paths'.format(n + 1, num_paths))
-        path = {
-                "observations": [],
-                "rewards": [],
-                "next_observations": [], 
-                "actions": []
-                }
+        path = {"observations": [], "rewards": [], "next_observations": [], "actions": []}
 
-        t = 0
-        ob = env.reset()
-        while t <= horizon:
+        obs = env.reset()
+        for t in range(horizon):
             if t % 100 == 0 and t:
-                print('    Time step {} with horizon {}'.format(t, horizon))
-            a = controller.get_action(ob)
-            nob, rew, done, info = env.step(a)
+                print('Timestep {} with horizon {}'.format(t, horizon))
 
-            path['observations'].append(ob)
-            path['rewards'].append(rew)
-            path['next_observations'].append(nob)
-            path['actions'].append(a)
-            ob = nob
-            t += 1
+            action = controller.get_action(obs)
+            next_obs, reward, done, _ = env.step(action)
+
+            path['observations'].append(obs)
+            path['rewards'].append(reward)
+            path['next_observations'].append(next_obs)
+            path['actions'].append(action)
+
+            obs = next_obs
+
             if done:
+                print('Episode finished after {} timesteps'.format(t+1))
                 break
 
         paths.append(path)
@@ -59,7 +56,10 @@ def sample(env,
 
 def path_cost(cost_fn, path):
     # Utility to compute cost a path for a given cost function
-    return trajectory_cost_fn(cost_fn, path['observations'], path['actions'], path['next_observations'])
+    return trajectory_cost_fn(cost_fn,
+                              path['observations'],
+                              path['actions'],
+                              path['next_observations'])
 
 
 def compute_normalization(data):
@@ -159,8 +159,7 @@ def train(env,
     data = sample(env,
                   random_controller,
                   num_paths_random,
-                  env_horizon
-                  )
+                  env_horizon)
 
     # ========================================================
     #
