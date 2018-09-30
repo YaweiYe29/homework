@@ -61,7 +61,7 @@ class NNDynamicsModel():
         self.loss = tf.losses.mean_squared_error(self.delta_t_ph, self.network)
 
         optimizer = tf.train.AdamOptimizer(learning_rate)
-        self.train = optimizer.minimize(loss)
+        self.train = optimizer.minimize(self.loss)
 
     def fit(self, data):
         """

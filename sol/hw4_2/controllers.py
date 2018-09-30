@@ -42,25 +42,24 @@ class MPCcontroller(Controller):
         # sample K sequences of actions
         actions = []
         for _ in range(self.horizon):
-            actions.append(
-                [self.env.action_space.sample()
-                 for _ in range(self.num_simulated_paths)])
+            actions.append([self.env.action_space.sample() for _ in range(self.num_simulated_paths)])
 
         # use dynamics model to generate simulated rollouts
         states = [[state] * self.num_simulated_paths]
         next_states = []
         for t in range(self.horizon):
-            ns = self.dyn_model.predict(states[t], actions[t])
-            states.append(ns)
-            next_states.append(ns)
+            next_state = self.dyn_model.predict(states[t], actions[t])
+            states.append(next_state)
+            next_states.append(next_state)
         states = states[:-1]
 
         states = np.swapaxes(np.asarray(states), 0, 1)
         actions = np.swapaxes(np.asarray(actions), 0, 1)
         next_states = np.swapaxes(np.asarray(next_states), 0, 1)
 
-        costs = [trajectory_cost_fn(self.cost_fn, states[j],
-                                    actions[j], next_states[j])
-                 for j in range(self.num_simulated_paths)]
+        costs = []
+        for j in range(self.num_simulated_paths):
+            costs.append(trajectory_cost_fn(self.cost_fn, states[j], actions[j], next_states[j]))
+
         idx = np.argmin(costs)
         return actions[idx][0]

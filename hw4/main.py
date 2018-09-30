@@ -214,6 +214,17 @@ def train(env,
     for itr in range(onpol_iters):
         """ YOUR CODE HERE """
 
+        print('Fitting dynamic model')
+        dyn_model.fit(data)
+
+        print('Perform MPC')
+        data_sample = sample(env,
+                             mpc_controller,
+                             num_paths=num_paths_onpol,
+                             horizon=env_horizon)
+
+        data.extend(data_sample)
+
 
         # LOGGING
         # Statistics for performance of MPC policy using
