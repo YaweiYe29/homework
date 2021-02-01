@@ -8,7 +8,9 @@ import tensorflow.contrib.layers as layers
 from collections import namedtuple
 from dqn_utils import *
 
-OptimizerSpec = namedtuple("OptimizerSpec", ["constructor", "kwargs", "lr_schedule"])
+OptimizerSpec = namedtuple(
+    "OptimizerSpec",
+    ["constructor", "kwargs", "lr_schedule"])
 
 def learn(env,
           q_func,
@@ -34,7 +36,7 @@ def learn(env,
     ----------
     env: gym.Env
         gym environment to train on.
-    q_func: function
+    q_func: functiohuobin
         Model to use for computing the q function. It should accept the
         following named arguments:
             img_in: tf.Tensor
@@ -120,7 +122,7 @@ def learn(env,
     # target_q_func_vars
     # These should hold all of the variables of the Q-function network and target network,
     # respectively. A convenient way to get these is to make use of TF's "scope" feature.
-    # For example, you can create your Q-function network with the scope "q_func" like this:
+    # For example, you can create your Q-function network with the scope "q_func" like thi/home/yawei/workspace/CS294/hw3/hw3_vid_dir2s:
     # <something> = q_func(obs_t_float, num_actions, scope="q_func", reuse=False)
     # And then you can obtain the variables like this:
     # q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='q_func')
@@ -135,17 +137,21 @@ def learn(env,
     target = rew_t_ph + (1.0 - done_mask_ph) * gamma * tf.reduce_max(q_tp1, axis=1)
     q_t_act = tf.reduce_sum(q_t * tf.one_hot(act_t_ph, num_actions), axis=1)
     total_error = tf.losses.mean_squared_error(target, q_t_act)
-    
+
     q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='q_func')
     target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='target_q_func')
-    
+
     ######
 
     # construct optimization op (with gradient clipping)
     learning_rate = tf.placeholder(tf.float32, (), name="learning_rate")
-    optimizer = optimizer_spec.constructor(learning_rate=learning_rate, **optimizer_spec.kwargs)
+
+    optimizer = optimizer_spec.constructor(learning_rate=learning_rate,
+                                           **optimizer_spec.kwargs)
+
     train_fn = minimize_and_clip(optimizer, total_error,
-                 var_list=q_func_vars, clip_val=grad_norm_clipping)
+                                 var_list=q_func_vars,
+                                 clip_val=grad_norm_clipping)
 
     # update_target_fn will be called periodically to copy Q network to target Q network
     update_target_fn = []
@@ -220,8 +226,6 @@ def learn(env,
         replay_buffer.store_effect(action, reward, done)
         last_obs = next_obs
 
-        #####
-
         # at this point, the environment should have been advanced one step (and
         # reset if done was true), and last_obs should point to the new latest
         # observation
@@ -230,9 +234,7 @@ def learn(env,
         # note that this is only done if the replay buffer contains enough samples
         # for us to learn something useful -- until then, the model will not be
         # initialized and random actions should be taken
-        if (t > learning_starts and
-                t % learning_freq == 0 and
-                replay_buffer.can_sample(batch_size)):
+        if (t > learning_starts and t % learning_freq == 0 and replay_buffer.can_sample(batch_size)):
             # Here, you should perform training. Training consists of four steps:
             # 3.a: use the replay buffer to sample a batch of transitions (see the
             # replay buffer code for function definition, each batch that you sample

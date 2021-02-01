@@ -3,7 +3,7 @@ import gym.spaces
 import itertools
 import numpy as np
 import random
-import tensorflow                as tf
+import tensorflow as tf
 import tensorflow.contrib.layers as layers
 from collections import namedtuple
 from dqn_utils import *
@@ -91,19 +91,19 @@ def learn(env,
 
     # set up placeholders
     # placeholder for current observation (or state)
-    obs_t_ph              = tf.placeholder(tf.uint8, [None] + list(input_shape))
+    obs_t_ph   = tf.placeholder(tf.uint8,   [None] + list(input_shape))
     # placeholder for current action
-    act_t_ph              = tf.placeholder(tf.int32,   [None])
+    act_t_ph   = tf.placeholder(tf.int32,   [None])
     # placeholder for current reward
-    rew_t_ph              = tf.placeholder(tf.float32, [None])
+    rew_t_ph   = tf.placeholder(tf.float32, [None])
     # placeholder for next observation (or state)
-    obs_tp1_ph            = tf.placeholder(tf.uint8, [None] + list(input_shape))
+    obs_tp1_ph = tf.placeholder(tf.uint8,   [None] + list(input_shape))
     # placeholder for end of episode mask
     # this value is 1 if the next state corresponds to the end of an episode,
     # in which case there is no Q-value at the next state; at the end of an
     # episode, only the current state reward contributes to the target, not the
     # next state Q-value (i.e. target is just rew_t_ph, not rew_t_ph + gamma * q_tp1)
-    done_mask_ph          = tf.placeholder(tf.float32, [None])
+    done_mask_ph  = tf.placeholder(tf.float32, [None])
 
     # casting to float on GPU ensures lower data transfer times.
     obs_t_float   = tf.cast(obs_t_ph,   tf.float32) / 255.0
@@ -125,17 +125,28 @@ def learn(env,
     # And then you can obtain the variables like this:
     # q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='q_func')
     # Older versions of TensorFlow may require using "VARIABLES" instead of "GLOBAL_VARIABLES"
-    ######
-    
-    # YOUR CODE HERE
 
-    ######
+    # YOUR CODE HERE
+    q_t = q_func(obs_t_float, num_actions, scope="q_func", reuse=False)
+    estimated_q_value = tf.reduce_sum(q_t*tf.one_hot(act_t_ph, num_actions), axis=1)
+
+    greedy_action = np.argmax(q_t, axis=1)
+
+    q_tp1 = q_func(obs_tp1_float, num_actions, scope="target_q_func", reuse=False)
+    target_q_value = rew_t_ph + (1.0 - done_mask_ph)*gamma*tf.reduce_max(q_tp1, axis=1)
+
+    total_error = tf.losses.mean_squared_error(target_q_value, estimated_q_value)
+
+    q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='q_func')
+    target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='target_q_func')
+
 
     # construct optimization op (with gradient clipping)
     learning_rate = tf.placeholder(tf.float32, (), name="learning_rate")
     optimizer = optimizer_spec.constructor(learning_rate=learning_rate, **optimizer_spec.kwargs)
     train_fn = minimize_and_clip(optimizer, total_error,
-                 var_list=q_func_vars, clip_val=grad_norm_clipping)
+                                 var_list=q_func_vars,
+                                 clip_val=grad_norm_clipping)
 
     # update_target_fn will be called periodically to copy Q network to target Q network
     update_target_fn = []
@@ -192,11 +203,21 @@ def learn(env,
         # may not yet have been initialized (but of course, the first step
         # might as well be random, since you haven't trained your net...)
 
-        #####
-        
         # YOUR CODE HERE
+        replay_buffer.store_frame(last_obs)
+        if not model_initialized or random.random() < exploration.value(t):
+            action = random.randint(0, num_actions-1)
+        else:
+            obs = replay_buffer.encode_recent_observation()
+            action = session.run(greedy_action, {obs_t_ph:[obs]})
 
-        #####
+        next_obs, reward, done, _ = env.step(action)
+
+        if done:
+            last_obs = env.reset()
+
+        replay_buffer.store_effect(action, reward, done)
+        last_obs = next_obs
 
         # at this point, the environment should have been advanced one step (and
         # reset if done was true), and last_obs should point to the new latest
@@ -206,9 +227,7 @@ def learn(env,
         # note that this is only done if the replay buffer contains enough samples
         # for us to learn something useful -- until then, the model will not be
         # initialized and random actions should be taken
-        if (t > learning_starts and
-                t % learning_freq == 0 and
-                replay_buffer.can_sample(batch_size)):
+        if (t > learning_starts and t % learning_freq == 0 and replay_buffer.can_sample(batch_size)):
             # Here, you should perform training. Training consists of four steps:
             # 3.a: use the replay buffer to sample a batch of transitions (see the
             # replay buffer code for function definition, each batch that you sample
@@ -242,11 +261,33 @@ def learn(env,
             # session.run(update_target_fn)
             # you should update every target_update_freq steps, and you may find the
             # variable num_param_updates useful for this (it was initialized to 0)
-            #####
-            
+
             # YOUR CODE HERE
 
-            #####
+            # (1) Sample a batch of transitions from replay buffer
+            obs_batch, act_batch, rew_batch, obs_tp1_batch, done_batch = replay_buffer.sample(batch_size)
+
+            # (2) Initialize the model if needed
+            if not model_initialized:
+                initialize_interdependent_variables(session, tf.global_variables(), {
+                    obs_t_ph : obs_batch,
+                    obs_tp1_ph : obs_tp1_batch,
+                })
+                model_initialized = True
+
+            # (3) Train the model
+            session.run(train_fn, {
+                act_t_ph : act_batch,
+                rew_t_ph : rew_batch,
+                obs_tp1_ph : obs_tp1_batch,
+                done_mask_ph : done_batch,
+                learning_rate : optimizer_spec.lr_schedule.value(t)
+            })
+
+            # (4) Periodically update target_fn
+            num_param_updates += 1
+            if num_param_updates % target_update_freq == 0:
+                session.run(update_target_fn)
 
         ### 4. Log progress
         episode_rewards = get_wrapper_by_name(env, "Monitor").get_episode_rewards()
